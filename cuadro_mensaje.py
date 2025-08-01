@@ -1,7 +1,6 @@
 """Cuadros de dialogos personalizados con CTK(Toplevel)
 """
 
-
 import customtkinter as ctk
 
 class CustomDialog(ctk.CTkToplevel):
