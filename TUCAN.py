@@ -2,7 +2,16 @@ import customtkinter as ctk
 from PIL import Image
 import os
 import json
-from cuadro_mensaje import ErrorDialog
+from asistentes.cuadro_mensaje import ErrorDialog
+from asistentes.iconos import iconos
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+JSON_DIR = os.path.join(BASE_DIR, "JSON")
+os.makedirs(JSON_DIR, exist_ok=True)
+ADMIN = os.path.join(JSON_DIR, "admin.json")
+USUARIOS = os.path.join(JSON_DIR, "usuarios.json")
+
+
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -12,12 +21,12 @@ def initialize_login_app():
     root.title("SISTEMA DE FACTURACION TUCAN")
     root._state_before_windows_set_titlebar_color = 'zoomed'
 
-    icon_path = os.path.join(os.path.dirname(__file__), "logo.ico")
+    icon_path = os.path.join(os.path.dirname(__file__),"imagenes", "logo.ico")
     try:
         if os.path.exists(icon_path):
             root.iconbitmap(icon_path)
     except Exception as e:
-        ErrorDialog(None, f"Advertencia: No se pudo cargar el icono: {e}")
+        ErrorDialog(None, f"Advertencia: No se pudo cargar el icono: {e}",iconos("imagenes","error.ico"))
 
     check_admin_file()
     check_users_file()
@@ -40,28 +49,10 @@ def initialize_login_app():
     return root
 
 
-def check_admin_file():
-    admin_path = os.path.join(os.path.dirname(__file__), "admin.json")
-    if not os.path.exists(admin_path):
-        default_admin = [{"id": "0", "nombre": "PREDETERMINADO", "usuario": "admin", "contraseña": "admin"}]
-        try:
-            with open(admin_path, 'w', encoding='utf-8') as f:
-                json.dump(default_admin, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            ErrorDialog(None, f"Error al crear admin.json: {e}")
-
-def check_users_file():
-    users_path = os.path.join(os.path.dirname(__file__), "usuarios.json")
-    if not os.path.exists(users_path):
-        try:
-            with open(users_path, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            ErrorDialog(None, f"Error al crear usuarios.json: {e}")
 
 def load_image(image_frame):
     try:
-        image_path = os.path.join(os.path.dirname(__file__), "login.jpg")
+        image_path = iconos("imagenes", "login.jpg")
         if not os.path.exists(image_path):
             raise FileNotFoundError("login.jpg no encontrado")
         pil_image = Image.open(image_path)
@@ -77,7 +68,7 @@ def load_image(image_frame):
         caption = ctk.CTkLabel(container, text="SF TUCAN", font=ctk.CTkFont(size=40, weight="bold"), text_color="lightblue", justify="center")
         caption.pack()
     except Exception as e:
-        ErrorDialog(None, f"Error al cargar imagen: {e}")
+        ErrorDialog(None, f"Error al cargar imagen: {e}",iconos("imagenes","error.ico"))
         placeholder = ctk.CTkLabel(image_frame, text="Bienvenido al Sistema\nERROR IMAGEN\n© 2023", font=ctk.CTkFont(size=16), justify="center")
         placeholder.pack(expand=True)
 
@@ -102,7 +93,7 @@ def create_login_widgets(login_frame,root):
     login_button = ctk.CTkButton(login_frame, text="Acceder", font=ctk.CTkFont(size=14, weight="bold"), height=40)
     login_button.grid(row=5, column=0, padx=40, pady=(0, 20), sticky="ew")
 
-    version_label = ctk.CTkLabel(login_frame, text="Versión : 1.2", font=ctk.CTkFont(size=12), text_color="gray")
+    version_label = ctk.CTkLabel(login_frame, text="Versión : 1.3", font=ctk.CTkFont(size=12), text_color="gray")
     version_label.grid(row=6, column=0, pady=(20, 0), sticky="se")
     return username_entry, password_entry, show_pass_btn
 
@@ -129,26 +120,42 @@ def handle_login(username_entry, password_entry, login_frame, root):
     else:
         show_error_message("✗ Credenciales incorrectas", login_frame, root)
 
+def check_admin_file():
+    if not os.path.exists(ADMIN):
+        default_admin = [{"id": "0", "nombre": "PREDETERMINADO", "usuario": "admin", "contraseña": "admin"}]
+        try:
+            with open(ADMIN, 'w', encoding='utf-8') as f:
+                json.dump(default_admin, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            ErrorDialog(None, f"Error al crear admin.json: {e}",iconos("imagenes","error.ico"))
+
+def check_users_file():
+    
+    if not os.path.exists(USUARIOS):
+        try:
+            with open(USUARIOS, 'w', encoding='utf-8') as f:
+                json.dump([], f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            ErrorDialog(None, f"Error al crear usuarios.json: {e}",iconos("imagenes","error.ico"))
+
 def verify_admin_credentials(username, password):
-    admin_path = os.path.join(os.path.dirname(__file__), "admin.json")
     try:
-        with open(admin_path, 'r', encoding='utf-8') as f:
+        with open(ADMIN, 'r', encoding='utf-8') as f:
             admins = json.load(f)
         return any(a["usuario"] == username and a["contraseña"] == password for a in admins)
     except Exception as e:
-        ErrorDialog(None, f"Error al leer admin.json: {e}")
+        ErrorDialog(None, f"Error al leer admin.json: {e}",iconos("imagenes","error.ico"))
         return False
 
 def verify_sales_credentials(username, password):
-    users_path = os.path.join(os.path.dirname(__file__), "usuarios.json")
     try:
-        if not os.path.exists(users_path):
+        if not os.path.exists(USUARIOS):
             return False
-        with open(users_path, 'r', encoding='utf-8') as f:
+        with open(USUARIOS, 'r', encoding='utf-8') as f:
             users = json.load(f)
         return any(u["usuario"] == username and u["contraseña"] == password for u in users)
     except Exception as e:
-        ErrorDialog(None, f"Error al leer usuarios.json: {e}")
+        ErrorDialog(None, f"Error al leer usuarios.json: {e}",iconos("imagenes","error.ico"))
         return False
 
 def open_admin_panel(root):

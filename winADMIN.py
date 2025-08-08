@@ -3,39 +3,42 @@ import json
 import os
 from gestion import main_simple
 from historial_ventas import HistorialVentasApp
-from cuadro_mensaje import ErrorDialog , SuccessDialog , InfoDialog
+from asistentes.cuadro_mensaje import ErrorDialog , SuccessDialog , InfoDialog
+from asistentes.iconos import iconos
+from ingreso_mercaderia import run_ingreso_mercaderia
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+JSON_DIR = os.path.join(BASE_DIR, "JSON")
+os.makedirs(JSON_DIR, exist_ok=True)
+EMPRESA = os.path.join(JSON_DIR,"empresa.json")
+ADMIN = os.path.join(JSON_DIR, "admin.json")
+USUARIOS = os.path.join(JSON_DIR, "usuarios.json")
 
 def initialize_admin_panel():
-    # Configuración inicial
     root = ctk.CTk()
-    base_dir_admin = os.path.dirname(__file__)  # Obtener el directorio del script para no rutas absolutas
-    employees_file = os.path.join(base_dir_admin, "usuarios.json")
-    admins_file = os.path.join(base_dir_admin, "admin.json")
+    base_dir_admin = os.path.dirname(__file__)
+    employees_file = USUARIOS
+    admins_file = ADMIN
 
-    # Verificar y crear archivos si no existen
     initialize_files(employees_file, admins_file)
 
-    # Configuración de la ventana
     root.title("Administración")
     root._state_before_windows_set_titlebar_color = "zoomed"
-    icon_path = os.path.join(base_dir_admin, "logo.ico")
+    icon_path = os.path.join(base_dir_admin, "imagenes", "logo.ico")
     try:
         if os.path.exists(icon_path):
             root.iconbitmap(icon_path)
     except Exception as e:
-        ErrorDialog(None,f"Advertencia: No se pudo cargar el icono: {e}")
+        ErrorDialog(None, f"Advertencia: No se pudo cargar el icono: {e}", iconos("imagenes", "error.ico"))
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
-    # Frame principal
     main_frame = ctk.CTkFrame(root, fg_color="transparent")
     main_frame.pack(pady=20, padx=20, fill="both", expand=True)
 
-    # Título y botón de cierre de sesión en el mismo frame
     header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
     header_frame.pack(fill="x", pady=(0, 20))
 
-    # Título
     title_label = ctk.CTkLabel(
         header_frame,
         text="Panel de Administración",
@@ -43,7 +46,6 @@ def initialize_admin_panel():
     )
     title_label.pack(side="left", pady=10)
 
-    # Botón de cierre de sesión
     logout_button = ctk.CTkButton(
         header_frame,
         text="🚪 Cerrar Sesión",
@@ -57,20 +59,15 @@ def initialize_admin_panel():
     )
     logout_button.pack(side="right", pady=10, padx=15)
 
-    # Panel principal con menú lateral y contenido
     main_container = ctk.CTkFrame(main_frame)
     main_container.pack(fill="both", expand=True)
-
-    # Configurar el grid del contenedor principal
     main_container.grid_columnconfigure(1, weight=1)
     main_container.grid_rowconfigure(0, weight=1)
 
-    # Crear menú lateral con diseño atractivo
     sidebar = ctk.CTkFrame(main_container, width=200, corner_radius=0, fg_color="#1a1a2e")
     sidebar.grid(row=0, column=0, sticky="nsew")
     sidebar.grid_propagate(False)
 
-    # Título del menú
     menu_title = ctk.CTkLabel(
         sidebar,
         text="MENÚ PRINCIPAL",
@@ -79,36 +76,30 @@ def initialize_admin_panel():
     )
     menu_title.pack(pady=(20, 25))
 
-    # Contenedor de contenido
     content_frame = ctk.CTkFrame(main_container)
     content_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-    # Variables que necesitan ser accesibles desde las funciones
-    employees_listbox = None
-    admins_listbox = None
-
-    # Frames de contenido (inicialmente ocultos)
     personal_frame = ctk.CTkFrame(content_frame)
     inventory_frame = ctk.CTkFrame(content_frame)
     sales_frame = ctk.CTkFrame(content_frame)
-    config_frame = ctk.CTkFrame(content_frame)
+    ingreso_frame = ctk.CTkFrame(content_frame)
     empresa_frame = ctk.CTkFrame(content_frame)
+    config_frame = ctk.CTkFrame(content_frame)
 
     frames = {
         "personal": personal_frame,
         "inventory": inventory_frame,
         "sales": sales_frame,
-        "config": config_frame,
-        "empresa": empresa_frame
+        "ingreso": ingreso_frame,
+        "empresa": empresa_frame,
+        "config": config_frame
     }
 
-    # Función para cambiar entre frames
     def show_frame(frame_name):
         for f in frames.values():
             f.pack_forget()
         frames[frame_name].pack(fill="both", expand=True)
 
-    # Estilo para los botones del menú
     menu_button_style = {
         "corner_radius": 0,
         "height": 40,
@@ -119,81 +110,75 @@ def initialize_admin_panel():
         "font": ("Roboto", 13)
     }
 
-    # Botones del menú con iconos textuales
-    personal_btn = ctk.CTkButton(
-        sidebar,
-        text=" 👥  Personal",
-        command=lambda: show_frame("personal"),
-        **menu_button_style
-    )
+    personal_btn = ctk.CTkButton(sidebar, text=" 👥  Personal", command=lambda: show_frame("personal"), **menu_button_style)
     personal_btn.pack(fill="x", pady=(0, 5))
 
-    inventory_btn = ctk.CTkButton(
-        sidebar,
-        text=" 📦  Inventario",
-        command=lambda: show_frame("inventory"),
-        **menu_button_style
-    )
+    inventory_btn = ctk.CTkButton(sidebar, text=" 📦  Inventario", command=lambda: show_frame("inventory"), **menu_button_style)
     inventory_btn.pack(fill="x", pady=5)
 
-    sales_btn = ctk.CTkButton(
-        sidebar,
-        text=" 💰  Ventas",
-        command=lambda: show_frame("sales"),
-        **menu_button_style
-    )
+    sales_btn = ctk.CTkButton(sidebar, text=" 💰  Ventas", command=lambda: show_frame("sales"), **menu_button_style)
     sales_btn.pack(fill="x", pady=5)
 
-    config_btn = ctk.CTkButton(
-        sidebar,
-        text=" ⚙️  Configuración",
-        command=lambda: show_frame("config"),
-        **menu_button_style
-    )
-    config_btn.pack(fill="x", pady=5)
+    ingreso_btn = ctk.CTkButton(sidebar, text="📥 Ingreso de mercadería", command=lambda: show_frame("ingreso"), **menu_button_style)
+    ingreso_btn.pack(fill="x", pady=5)
 
-    empresa_btn = ctk.CTkButton(
-        sidebar,
-        text="🏢  Empresa",
-        command=lambda: show_frame("empresa"),
-        **menu_button_style
-    )
+    empresa_btn = ctk.CTkButton(sidebar, text="🏢  Empresa", command=lambda: show_frame("empresa"), **menu_button_style)
     empresa_btn.pack(fill="x", pady=5)
 
-    # Separador
+    config_btn = ctk.CTkButton(sidebar, text=" ⚙️  Configuración", command=lambda: show_frame("config"), **menu_button_style)
+    config_btn.pack(fill="x", pady=5)
+
     separator = ctk.CTkFrame(sidebar, height=1, fg_color="gray")
     separator.pack(fill="x", pady=15, padx=20)
 
-    # Información de la versión
-    version_label = ctk.CTkLabel(
-        sidebar,
-        text="v1.2",
-        font=("Roboto", 15),
-        text_color="gray"
-    )
+    version_label = ctk.CTkLabel(sidebar, text="v1.3", font=("Roboto", 15), text_color="gray")
     version_label.pack(pady=(5, 15))
 
-    # Crear el contenido de la pestaña Personal
     employees_listbox, admins_listbox = create_personal_tab(personal_frame, employees_file, admins_file)
-
-    # Crear el contenido de las otras pestañas
     create_simplified_tabs(frames)
     create_empresa_tab(frames["empresa"])
+    create_ingreso_tab(frames["ingreso"])
 
-    # Mostrar el frame Personal por defecto
     show_frame("personal")
-
-    # Cargar datos iniciales
     load_data(employees_file, admins_file, employees_listbox, admins_listbox)
 
     return root
 
+def create_ingreso_tab(parent):
+    parent.grid_columnconfigure(0, weight=1)
 
-#NUEVA FUNCIÓN: PESTAÑA EMPRESA 1.0 - 1.2 
+    title = ctk.CTkLabel(
+        parent,
+        text="Ingreso de Mercadería",
+        font=("Roboto", 22, "bold"),
+        text_color="#16a085"
+    )
+    title.pack(pady=(20, 10))
+
+    form = ctk.CTkFrame(parent, corner_radius=10)
+    form.pack(padx=40, pady=20, fill="both", expand=True)
+
+    ctk.CTkLabel(
+        form,
+        text="Aqui podras sumar el inventario actual de tus productos , sin necesidad de sumar \nSi quieres agregar o quitar productos ve a Inventario",
+        font=("Roboto", 15),
+        wraplength=500,
+        justify="left"
+    ).pack(padx=20, pady=(30, 20))
+
+    ctk.CTkButton(
+        form,
+        text="💾 Abrir Ingreso de Mercaderia",
+        command=lambda: run_ingreso_mercaderia(),
+        fg_color="#16a085",
+        hover_color="#138d75",
+        height=40,
+        font=("Roboto", 13, "bold"),
+    ).pack(pady=30)
+
 def create_empresa_tab(parent):
     parent.grid_columnconfigure(0, weight=1)
 
-    # Título
     title = ctk.CTkLabel(
         parent,
         text="Datos de la Empresa",
@@ -202,12 +187,10 @@ def create_empresa_tab(parent):
     )
     title.pack(pady=(20, 10))
 
-    # Frame contenedor
     form = ctk.CTkFrame(parent, corner_radius=10)
     form.pack(padx=40, pady=20, fill="both", expand=True)
 
-    # Campos
-    empresa_path = os.path.join(os.path.dirname(__file__), "empresa.json")
+    empresa_path = EMPRESA
     if not os.path.exists(empresa_path):
         with open(empresa_path, "w") as f:
             json.dump(
@@ -237,15 +220,14 @@ def create_empresa_tab(parent):
         entry.pack(fill="x", padx=20)
         entries[key] = entry
 
-    # Botón guardar
     def guardar():
         try:
             new_data = {k: v.get().strip() for k, v in entries.items()}
             with open(empresa_path, "w") as f:
                 json.dump(new_data, f, indent=4)
-            SuccessDialog(None, "Datos guardados correctamente")
+            SuccessDialog(None, "Datos guardados correctamente", iconos("imagenes", "exito.ico"))
         except Exception as e:
-            ErrorDialog(None, str(e))
+            ErrorDialog(None, str(e), iconos("imagenes", "error.ico"))
 
     ctk.CTkButton(
         form,
@@ -256,7 +238,6 @@ def create_empresa_tab(parent):
         height=40,
         font=("Roboto", 13, "bold"),
     ).pack(pady=30)
-
 
 
 def initialize_files(employees_file, admins_file):
@@ -451,8 +432,6 @@ def create_simplified_tabs(frames):
     ).pack(anchor="w")
 
     features = [
-        "•Configuracion de precios con IVA",
-        "•Notificacion si la mercancía se este acabando",
         "-Proximamente"
     ]
 
@@ -692,7 +671,7 @@ def load_employees(employees_file, employees_listbox):
         
         employees_listbox.configure(state="disabled")
     except Exception as e:
-        ErrorDialog(None, f"No se pudieron cargar los empleados: {str(e)}")
+        ErrorDialog(None, f"No se pudieron cargar los empleados: {str(e)}",iconos("imagenes","error.ico"))
 
 def load_admins(admins_file, admins_listbox):
     try:
@@ -717,7 +696,7 @@ def load_admins(admins_file, admins_listbox):
         
         admins_listbox.configure(state="disabled")
     except Exception as e:
-        ErrorDialog(None, f"No se pudieron cargar los administradores: {str(e)}")
+        ErrorDialog(None, f"No se pudieron cargar los administradores: {str(e)}",iconos("imagenes","error.ico"))
 
 #añadir empleados
 def add_employee_dialog(employees_file, parent_window, employees_listbox):
@@ -811,12 +790,29 @@ def add_employee_dialog(employees_file, parent_window, employees_listbox):
         width=150
     )
     save_btn.grid(row=0, column=0, padx=10, pady=5)
-    
+    # ✅ Centrar
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (570 // 2)
+    dialog.geometry(f"450x570+{x}+{y}")
+    # Función de cierre robusta
+    def close_add_employee_dialog():
+        for child in dialog.winfo_children():
+            try:
+                if hasattr(child, 'winfo_class') and child.winfo_class() == 'CTkEntry':
+                    try:
+                        child.configure(state='disabled')
+                    except Exception:
+                        pass
+                child.destroy()
+            except Exception:
+                pass
+        dialog.destroy()
     # Botón Cancelar
     cancel_btn = ctk.CTkButton(
         btn_layout,
         text="❌ Cancelar",
-        command=dialog.destroy,
+        command=close_add_employee_dialog,
         fg_color="#e74c3c",
         hover_color="#c0392b",
         font=("Roboto", 13, "bold"),
@@ -838,7 +834,7 @@ def save_employee(entries, dialog, employees_file, employees_listbox):
         # Validar campos vacíos
         for key, value in employee_data.items():
             if not value.strip():
-                InfoDialog(None, f"El campo {key} no puede estar vacío")
+                InfoDialog(None, f"El campo {key} no puede estar vacío",iconos("imagenes","info.ico"))
                 return
         
         # Leer empleados existentes
@@ -847,7 +843,7 @@ def save_employee(entries, dialog, employees_file, employees_listbox):
         
         # Verificar si el ID ya existe
         if any(emp["id"] == employee_data["id"] for emp in employees):
-            InfoDialog(None, "Ya existe un empleado con este ID")
+            InfoDialog(None, "Ya existe un empleado con este ID",iconos("imagenes","info.ico"))
             return
         
         # Añadir nuevo empleado
@@ -857,14 +853,14 @@ def save_employee(entries, dialog, employees_file, employees_listbox):
         with open(employees_file, 'w') as f:
             json.dump(employees, f, indent=4)
         
-        InfoDialog(None, "Empleado agregado correctamente")
+        InfoDialog(None, "Empleado agregado correctamente",iconos("imagenes","info.ico"))
         
         # Actualizar la lista de empleados
         load_employees(employees_file, employees_listbox)
         dialog.destroy()
         
     except Exception as e:
-        ErrorDialog(None, f"No se pudo guardar el empleado: {str(e)}")
+        ErrorDialog(None, f"No se pudo guardar el empleado: {str(e)}",iconos("imagenes","error.ico"))
 
 def remove_employee_dialog(employees_file, parent_window, employees_listbox):
     dialog = ctk.CTkToplevel(parent_window)
@@ -929,13 +925,26 @@ def remove_employee_dialog(employees_file, parent_window, employees_listbox):
     btn_layout.grid_columnconfigure(0, weight=1)
     btn_layout.grid_columnconfigure(1, weight=1)
     
+    # Función de cierre robusta
+    def close_remove_employee_dialog():
+        for child in dialog.winfo_children():
+            try:
+                if hasattr(child, 'winfo_class') and child.winfo_class() == 'CTkEntry':
+                    try:
+                        child.configure(state='disabled')
+                    except Exception:
+                        pass
+                child.destroy()
+            except Exception:
+                pass
+        dialog.destroy()
     # Botón Cancelar
     cancel_btn = ctk.CTkButton(
         btn_layout,
         text="❌ Cancelar",
-        command=dialog.destroy,
-        fg_color="#95a5a6",
-        hover_color="#7f8c8d",
+        command=close_remove_employee_dialog,
+        fg_color="#14cf33",
+        hover_color="#26c018",
         font=("Roboto", 13, "bold"),
         corner_radius=8,
         height=42,
@@ -956,12 +965,17 @@ def remove_employee_dialog(employees_file, parent_window, employees_listbox):
         width=150
     )
     delete_btn.grid(row=0, column=1, padx=10, pady=5)
+    # ✅ Centrar
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (570 // 2)
+    dialog.geometry(f"450x570+{x}+{y}")
 
 #Eliminar empleado por ID
 def remove_employee(emp_id, dialog, employees_file, employees_listbox):
     try:
         if not emp_id.strip():
-            InfoDialog(None, "Debe ingresar un ID")
+            InfoDialog(None, "Debe ingresar un ID",iconos("imagenes","info.ico"))
             return
         
         with open(employees_file, 'r') as f:
@@ -971,21 +985,21 @@ def remove_employee(emp_id, dialog, employees_file, employees_listbox):
         new_employees = [emp for emp in employees if emp["id"] != emp_id]
         
         if len(new_employees) == len(employees):
-            InfoDialog(None, "No se encontró un empleado con ese ID")
+            InfoDialog(None, "No se encontró un empleado con ese ID",iconos("imagenes","info.ico"))
             return
         
         # Guardar los cambios
         with open(employees_file, 'w') as f:
             json.dump(new_employees, f, indent=4)
         
-        InfoDialog(None, "Empleado eliminado correctamente")
+        InfoDialog(None, "Empleado eliminado correctamente",iconos("imagenes","info.ico"))
         
         # Actualizar la lista de empleados
         load_employees(employees_file, employees_listbox)
         dialog.destroy()
         
     except Exception as e:
-        InfoDialog(None, f"No se pudo eliminar el empleado: {str(e)}")
+        InfoDialog(None, f"No se pudo eliminar el empleado: {str(e)}",iconos("imagenes","info.ico"))
 
 def add_admin_dialog(admins_file, parent_window, admins_listbox):
     dialog = ctk.CTkToplevel(parent_window)
@@ -1032,10 +1046,22 @@ def add_admin_dialog(admins_file, parent_window, admins_listbox):
     button_frame.pack(fill="x", pady=20, padx=20)
     
     # Botones
+    def close_add_admin_dialog():
+        for child in dialog.winfo_children():
+            try:
+                if hasattr(child, 'winfo_class') and child.winfo_class() == 'CTkEntry':
+                    try:
+                        child.configure(state='disabled')
+                    except Exception:
+                        pass
+                child.destroy()
+            except Exception:
+                pass
+        dialog.destroy()
     ctk.CTkButton(
         button_frame,
         text="Cancelar",
-        command=dialog.destroy,
+        command=close_add_admin_dialog,
         fg_color="#e74c3c",
         width=120,
         height=35
@@ -1049,6 +1075,11 @@ def add_admin_dialog(admins_file, parent_window, admins_listbox):
         width=120,
         height=35
     ).pack(side="right", padx=5)
+    # ✅ Centrar
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (570 // 2)
+    dialog.geometry(f"450x570+{x}+{y}")
 
 def save_admin(entries, dialog, admins_file, admins_listbox):
     try:
@@ -1062,7 +1093,7 @@ def save_admin(entries, dialog, admins_file, admins_listbox):
         # Validar campos vacíos
         for key, value in admin_data.items():
             if not value.strip():
-                InfoDialog(None, f"El campo {key} no puede estar vacío")
+                InfoDialog(None, f"El campo {key} no puede estar vacío",iconos("imagenes","info.ico"))
                 return
         
         # Leer administradores existentes
@@ -1071,7 +1102,7 @@ def save_admin(entries, dialog, admins_file, admins_listbox):
         
         # Verificar si el ID ya existe
         if any(admin["id"] == admin_data["id"] for admin in admins):
-            InfoDialog(None, "Ya existe un administrador con este ID")
+            InfoDialog(None, "Ya existe un administrador con este ID",iconos("imagenes","info.ico"))
             return
         
         # Añadir nuevo administrador
@@ -1081,14 +1112,14 @@ def save_admin(entries, dialog, admins_file, admins_listbox):
         with open(admins_file, 'w') as f:
             json.dump(admins, f, indent=4)
         
-        InfoDialog(None, "Administrador agregado correctamente")
+        InfoDialog(None, "Administrador agregado correctamente",iconos("imagenes","info.ico"))
         
         # Actualizar la lista de administradores
         load_admins(admins_file, admins_listbox)
         dialog.destroy()
         
     except Exception as e:
-        InfoDialog(None, f"No se pudo guardar el administrador: {str(e)}")
+        InfoDialog(None, f"No se pudo guardar el administrador: {str(e)}",iconos("imagenes","info.ico"))
 
 def remove_admin_dialog(admins_file, parent_window, admins_listbox):
     dialog = ctk.CTkToplevel(parent_window)
@@ -1139,10 +1170,22 @@ def remove_admin_dialog(admins_file, parent_window, admins_listbox):
     button_frame.pack(fill="x", pady=20, padx=20)
     
     # Botones
+    def close_remove_admin_dialog():
+        for child in dialog.winfo_children():
+            try:
+                if hasattr(child, 'winfo_class') and child.winfo_class() == 'CTkEntry':
+                    try:
+                        child.configure(state='disabled')
+                    except Exception:
+                        pass
+                child.destroy()
+            except Exception:
+                pass
+        dialog.destroy()
     ctk.CTkButton(
         button_frame,
         text="Cancelar",
-        command=dialog.destroy,
+        command=close_remove_admin_dialog,
         fg_color="#95a5a6",
         width=120,
         height=35
@@ -1156,11 +1199,16 @@ def remove_admin_dialog(admins_file, parent_window, admins_listbox):
         width=120,
         height=35
     ).pack(side="right", padx=5)
+    # ✅ Centrar
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (570 // 2)
+    dialog.geometry(f"450x570+{x}+{y}")
 
 def remove_admin(admin_id, dialog, admins_file, admins_listbox):
     try:
         if not admin_id.strip():
-            InfoDialog(None, "Debe ingresar un ID")
+            InfoDialog(None, "Debe ingresar un ID",iconos("imagenes","info.ico"))
             return
         
         with open(admins_file, 'r') as f:
@@ -1170,26 +1218,26 @@ def remove_admin(admin_id, dialog, admins_file, admins_listbox):
         new_admins = [admin for admin in admins if admin["id"] != admin_id]
         
         if len(new_admins) == len(admins):
-            InfoDialog(None, "No se encontró un administrador con ese ID")
+            InfoDialog(None, "No se encontró un administrador con ese ID",iconos("imagenes","info.ico"))
             return
 
         # Verificar si se intenta eliminar el último administrador
         if len(admins) == 1 and admin_id == admins[0]["id"]:
-            InfoDialog(None, "No se puede eliminar el último administrador del sistema.")
+            InfoDialog(None, "No se puede eliminar el último administrador del sistema.",iconos("imagenes","info.ico"))
             return
 
         # Guardar los cambios
         with open(admins_file, 'w') as f:
             json.dump(new_admins, f, indent=4)
         
-        InfoDialog(None, "Administrador eliminado correctamente")
+        InfoDialog(None, "Administrador eliminado correctamente",iconos("imagenes","info.ico"))
         
         # Actualizar la lista de administradores
         load_admins(admins_file, admins_listbox)
         dialog.destroy()
         
     except Exception as e:
-        InfoDialog(None, f"No se pudo eliminar el administrador: {str(e)}")
+        InfoDialog(None, f"No se pudo eliminar el administrador: {str(e)}",iconos("imagenes","info.ico"))
 
 def logout_admin(root):
     confirm_dialog = ctk.CTkToplevel(root)
@@ -1229,11 +1277,24 @@ def logout_admin(root):
     button_frame = ctk.CTkFrame(main_content, fg_color="transparent")
     button_frame.pack(fill="x", pady=(20, 10), padx=20)
     
+    # Función de cierre robusta
+    def close_logout_dialog():
+        for child in confirm_dialog.winfo_children():
+            try:
+                if hasattr(child, 'winfo_class') and child.winfo_class() == 'CTkEntry':
+                    try:
+                        child.configure(state='disabled')
+                    except Exception:
+                        pass
+                child.destroy()
+            except Exception:
+                pass
+        confirm_dialog.destroy()
     # Botón Cancelar
     ctk.CTkButton(
         button_frame,
         text="Cancelar",
-        command=confirm_dialog.destroy,
+        command=close_logout_dialog,
         fg_color="#95a5a6",
         hover_color="#7f8c8d",
         font=("Roboto", 13, "bold"),
@@ -1254,9 +1315,15 @@ def logout_admin(root):
         height=40,
         width=130
     ).pack(side="right", padx=10)
+    
+    def confirmar_logout(root, dialog):
+        # ✅ Centrar
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (570 // 2)
+        dialog.geometry(f"450x570+{x}+{y}")
+        dialog.destroy()
+        root.destroy()
+        from TUCAN import run_login_app
+        run_login_app()
 
-def confirmar_logout(root, dialog):
-    dialog.destroy()
-    root.destroy()
-    from TUCAN import run_login_app
-    run_login_app()

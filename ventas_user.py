@@ -8,7 +8,34 @@ from reportlab.platypus import SimpleDocTemplate,Paragraph, Spacer
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from cuadro_mensaje import ErrorDialog
+from asistentes.cuadro_mensaje import ErrorDialog
+
+DB_DIR   = os.path.join(os.path.dirname(__file__), "BASE DE DATOS")
+os.makedirs(DB_DIR, exist_ok=True)
+DB_PRODUCTOS = os.path.join(DB_DIR, "productos.db")
+DB_VENTAS    = os.path.join(DB_DIR, "ventas.db")
+
+#------------------------------
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+JSON_DIR = os.path.join(BASE_DIR, "JSON")
+os.makedirs(JSON_DIR, exist_ok=True)
+COUNTER_FILE = os.path.join(JSON_DIR, "factura_counter.json")
+EMPRESA = os.path.join(JSON_DIR,"empresa.json")
+
+
+def siguiente_numero_factura():
+    if not os.path.exists(COUNTER_FILE):
+        cont = 1
+    else:
+        with open(COUNTER_FILE, "r", encoding="utf-8") as f:
+            cont = json.load(f).get("ultimo", 0) + 1
+
+    with open(COUNTER_FILE, "w", encoding="utf-8") as f:
+        json.dump({"ultimo": cont}, f)
+
+    return f"{cont:010d}"
+
 
 class CTkTreeview(ttk.Treeview):
     def __init__(self, master=None, **kwargs):
@@ -38,12 +65,6 @@ def crear_sistema_ventas_tucan():
             super().__init__()
             self.title("SISTEMA DE FACTURACION TUCAN")
             self._state_before_windows_set_titlebar_color = 'zoomed'
-            icon_path = os.path.join(os.path.dirname(__file__), "logo.ico")
-            try:
-                if os.path.exists(icon_path):
-                    self.iconbitmap(icon_path)
-            except Exception as e:
-                ErrorDialog(None,f"Advertencia: No se pudo cargar el icono: {e}")
             ctk.set_appearance_mode("dark")
             ctk.set_default_color_theme("blue")
 
@@ -59,7 +80,12 @@ def crear_sistema_ventas_tucan():
         def logout(self):
             confirm_dialog = ctk.CTkToplevel(self)
             confirm_dialog.title("Confirmar cierre de sesión")
-            confirm_dialog.geometry("300x150")
+            width, height = 300, 150
+            screen_width = confirm_dialog.winfo_screenwidth()
+            screen_height = confirm_dialog.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            confirm_dialog.geometry(f"{width}x{height}+{x}+{y}")
             confirm_dialog.resizable(False, False)
             confirm_dialog.grab_set()
             ctk.CTkLabel(confirm_dialog, text="¿Está seguro que desea cerrar sesión?", font=("Roboto", 14)).pack(pady=(20, 15))
@@ -76,7 +102,7 @@ def crear_sistema_ventas_tucan():
 
         def conectar_bases_datos(self):
             try:
-                self.conn_productos = sqlite3.connect('productos.db')
+                self.conn_productos = sqlite3.connect(DB_PRODUCTOS)
                 self.cursor_productos = self.conn_productos.cursor()
                 self.cursor_productos.execute('''CREATE TABLE IF NOT EXISTS productos (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +114,7 @@ def crear_sistema_ventas_tucan():
                     stock INTEGER NOT NULL)''')
                 self.conn_productos.commit()
 
-                self.conn_ventas = sqlite3.connect('ventas.db')
+                self.conn_ventas = sqlite3.connect(DB_VENTAS)
                 self.cursor_ventas = self.conn_ventas.cursor()
                 self.cursor_ventas.execute('''CREATE TABLE IF NOT EXISTS ventas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +130,12 @@ def crear_sistema_ventas_tucan():
         def mostrar_mensaje_error(self, titulo, mensaje):
             dialog = ctk.CTkToplevel(self)
             dialog.title(titulo)
-            dialog.geometry("350x200")
+            width, height = 350, 200
+            screen_width = dialog.winfo_screenwidth()
+            screen_height = dialog.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            dialog.geometry(f"{width}x{height}+{x}+{y}")
             dialog.resizable(False, False)
             dialog.grab_set()
             ctk.CTkLabel(dialog, text="❌", font=("Arial", 48)).pack(pady=(20, 10))
@@ -114,7 +145,12 @@ def crear_sistema_ventas_tucan():
         def mostrar_mensaje_advertencia(self, titulo, mensaje):
             dialog = ctk.CTkToplevel(self)
             dialog.title(titulo)
-            dialog.geometry("350x200")
+            width, height = 350, 200
+            screen_width = dialog.winfo_screenwidth()
+            screen_height = dialog.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            dialog.geometry(f"{width}x{height}+{x}+{y}")
             dialog.resizable(False, False)
             dialog.grab_set()
             ctk.CTkLabel(dialog, text="⚠️", font=("Arial", 48)).pack(pady=(20, 10))
@@ -124,7 +160,12 @@ def crear_sistema_ventas_tucan():
         def mostrar_mensaje_info(self, titulo, mensaje):
             dialog = ctk.CTkToplevel(self)
             dialog.title(titulo)
-            dialog.geometry("350x200")
+            width, height = 350, 200
+            screen_width = dialog.winfo_screenwidth()
+            screen_height = dialog.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            dialog.geometry(f"{width}x{height}+{x}+{y}")
             dialog.resizable(False, False)
             dialog.grab_set()
             ctk.CTkLabel(dialog, text="ℹ️", font=("Arial", 48)).pack(pady=(20, 10))
@@ -336,7 +377,12 @@ def crear_sistema_ventas_tucan():
             try:
                 self.dialog = ctk.CTkToplevel(self)
                 self.dialog.title("Finalizar Venta")
-                self.dialog.geometry("350x300")
+                width, height = 350, 300
+                screen_width = self.dialog.winfo_screenwidth()
+                screen_height = self.dialog.winfo_screenheight()
+                x = (screen_width // 2) - (width // 2)
+                y = (screen_height // 2) - (height // 2)
+                self.dialog.geometry(f"{width}x{height}+{x}+{y}")
                 self.dialog.grab_set()
                 self.dialog.focus()
                 self.monto_recibido = self.total_venta
@@ -382,13 +428,20 @@ def crear_sistema_ventas_tucan():
             except ValueError:
                 self.mostrar_mensaje_advertencia("Entrada inválida", "Ingrese un monto válido.")
                 return
+            cambio = round(recibido - self.total_venta, 2)
+            self.monto_recibido = recibido
+            self.cambio_venta = cambio
             self.dialog.destroy()
-            self.preguntar_factura()
-
-        def preguntar_factura(self):
+            self.preguntar_factura(recibido, cambio)
+        def preguntar_factura(self, recibido, cambio):
             dialog_factura = ctk.CTkToplevel(self)
             dialog_factura.title("Factura")
-            dialog_factura.geometry("300x150")
+            width, height = 300, 150
+            screen_width = dialog_factura.winfo_screenwidth()
+            screen_height = dialog_factura.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            dialog_factura.geometry(f"{width}x{height}+{x}+{y}")
             dialog_factura.grab_set()
             ctk.CTkLabel(dialog_factura, text="¿Desea generar factura?", font=("Arial", 14)).pack(pady=(20, 15))
             btn_frame = ctk.CTkFrame(dialog_factura, fg_color="transparent")
@@ -407,8 +460,6 @@ def crear_sistema_ventas_tucan():
                             'tipo_precio': str(valores[4])
                         })
                     total = self.total_venta
-                    recibido = getattr(self, 'monto_recibido', total)
-                    cambio = round(recibido - total, 2)
                     numero_factura = f"TF-{datetime.now().strftime('%Y%m%d%H%M%S')}"
                     dialog_factura.destroy()
                     self.pedir_datos_factura(productos, total, recibido, cambio, numero_factura)
@@ -422,11 +473,16 @@ def crear_sistema_ventas_tucan():
 
             ctk.CTkButton(btn_frame, text="Sí", command=procesar_con_factura, fg_color="#2ecc71", width=100).pack(side="left", padx=10)
             ctk.CTkButton(btn_frame, text="No", command=procesar_sin_factura, fg_color="#e74c3c", width=100).pack(side="left", padx=10)
-
+                
         def pedir_datos_factura(self, productos, total, recibido, cambio, numero_factura):
             dialog_datos = ctk.CTkToplevel(self)
             dialog_datos.title("Datos de Factura")
-            dialog_datos.geometry("400x300")
+            width, height = 400, 300
+            screen_width = dialog_datos.winfo_screenwidth()
+            screen_height = dialog_datos.winfo_screenheight()
+            x = (screen_width // 2) - (width // 2)
+            y = (screen_height // 2) - (height // 2)
+            dialog_datos.geometry(f"{width}x{height}+{x}+{y}")
             dialog_datos.resizable(False, False)
             dialog_datos.grab_set()
             cliente_tipo = ctk.StringVar(value="final")
@@ -477,15 +533,18 @@ def crear_sistema_ventas_tucan():
 
         def generar_factura_pdf(self, productos, total, recibido, cambio, numero_factura, cliente_ruc=None, cliente_nombre=None):
             try:
-                facturas_dir = os.path.join(os.path.dirname(__file__), "facturas")
+                # Obtener el escritorio del usuario de forma multiplataforma
+                from pathlib import Path
+                desktop = str(Path.home() / "Desktop")
+                facturas_dir = os.path.join(desktop, "facturas")
                 os.makedirs(facturas_dir, exist_ok=True)
                 fecha_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = os.path.join(facturas_dir, f"factura_{numero_factura}_{fecha_hora}.pdf")
                 doc = SimpleDocTemplate(filename, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=40, bottomMargin=30)
                 styles = getSampleStyleSheet()
                 story = []
-                    # --- Leer datos de la empresa ---
-                empresa_path = os.path.join(os.path.dirname(__file__), "empresa.json")
+                # --- Leer datos de la empresa ---
+                empresa_path = EMPRESA
                 try:
                     with open(empresa_path) as f:
                         emp = json.load(f)
@@ -496,16 +555,16 @@ def crear_sistema_ventas_tucan():
                         "telefono": "TELEFONO",
                         "email": "sftucan@ejemplo.com"
                     }
-
+                num_fact = siguiente_numero_factura()
                 story.append(Paragraph(f"<b>{emp['nombre']}</b>", styles["Title"]))
                 story.append(Paragraph(f"Direccion: {emp['direccion']}", styles["Normal"]))
                 story.append(Paragraph(f"Tel: {emp['telefono']}", styles["Normal"]))
                 story.append(Paragraph(f"Email: {emp['email']}", styles["Normal"]))
                 story.append(Spacer(1, 12))
 
-                story.append(Paragraph(f"<b>Factura #{numero_factura}</b>", styles["Heading2"]))
+                story.append(Paragraph(f"<b>Factura #{num_fact}</b>", styles["Heading2"]))
                 story.append(Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles["Normal"]))
-                story.append(Paragraph(f"Tipo de Venta: {self.tipo_precio_seleccionado.get().replace('precio_', 'Venta ')}", styles["Normal"]))
+                story.append(Paragraph(f"Tipo de Venta: {self.tipo_precio_seleccionado.get().replace('precio_','Venta ')}", styles["Normal"]))
                 if cliente_ruc:
                     story.append(Paragraph(f"Cliente: {cliente_nombre}", styles["Normal"]))
                     story.append(Paragraph(f"RUC/Cédula: {cliente_ruc}", styles["Normal"]))
@@ -514,12 +573,16 @@ def crear_sistema_ventas_tucan():
                 story.append(Spacer(1, 12))
 
                 story.append(Paragraph("<b>DETALLE DE PRODUCTOS:</b>", styles["Heading3"]))
+                # Elimina la columna de IVA y Precio IVA
                 data = [["Producto", "Cantidad", "Precio Unit.", "Subtotal"]]
                 for p in productos:
-                    data.append([p['nombre'], str(p['cantidad']), f"${p['precio']:.2f}", f"${p['subtotal']:.2f}"])
+                    subtotal = float(p['subtotal'])
+                    data.append([
+                        p['nombre'], str(p['cantidad']), f"${p['precio']:.2f}", f"${subtotal:.2f}"
+                    ])
 
                 from reportlab.platypus import Table, TableStyle
-                table = Table(data, colWidths=[200, 70, 80, 80])
+                table = Table(data, colWidths=[160, 50, 70, 80])
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -568,7 +631,8 @@ def crear_sistema_ventas_tucan():
                 self.conn_ventas.commit()
                 mensaje = "Venta registrada correctamente"
                 if con_factura:
-                    mensaje += f"\nFactura generada con número: {datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    num_factura = siguiente_numero_factura()
+                    mensaje += f"\nFactura generada con número: {num_factura}"
                 self.mostrar_mensaje_info("Éxito", mensaje)
                 self.limpiar_venta()
                 self.cargar_productos()
@@ -581,3 +645,4 @@ def crear_sistema_ventas_tucan():
             self.lbl_total.configure(text=f"TOTAL: ${self.total_venta:.2f}")
 
     return SistemaVentasTucan()
+

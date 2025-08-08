@@ -9,46 +9,19 @@ from reportlab.lib.enums import TA_LEFT
 from reportlab.lib import colors  
 from reportlab.lib.units import inch
 from tkinter import ttk
+from asistentes.iconos import iconos 
+from asistentes.cuadro_mensaje import InfoDialog , ErrorDialog , SuccessDialog
 
-
-
-class CustomDialog(ctk.CTkToplevel):
-    def __init__(self, parent, title, message, button_text="OK"):
-        super().__init__(parent)
-        self.title(title)
-        self.geometry("400x200")
-        self.resizable(False, False)
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
-        self.grab_set()
-        self.transient(parent)
-        self._frame = ctk.CTkFrame(self)
-        self._frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
-        self.label = ctk.CTkLabel(self._frame, text=message, wraplength=350, font=("Roboto", 12))
-        self.label.pack(pady=20, padx=20, fill="both", expand=True)
-        self.button = ctk.CTkButton(self._frame, text=button_text, width=120, height=35,
-                                    font=("Roboto", 12, "bold"), command=self.destroy)
-        self.button.pack(pady=10)
-
-
-class ErrorDialog(CustomDialog):
-    def __init__(self, parent, message):
-        super().__init__(parent, "Error", message)
-        self.after(100, lambda: self.button.configure(fg_color="#d9534f", hover_color="#c9302c"))
-
-
-class SuccessDialog(CustomDialog):
-    def __init__(self, parent, message):
-        super().__init__(parent, "Éxito", message, "Aceptar")
-        
-        self.after(100, lambda: self.button.configure(fg_color="#5cb85c", hover_color="#4cae4c"))
-
+DB_DIR   = os.path.join(os.path.dirname(__file__), "BASE DE DATOS")
+os.makedirs(DB_DIR, exist_ok=True)
+DB_FILE  = os.path.join(DB_DIR, "ventas.db")
 
 class SaleDetailsDialog(ctk.CTkToplevel):
     def __init__(self, parent, sale_data):
         super().__init__(parent)
         self.title(f"Detalles de Venta ID: {sale_data['id']}")
-        self.geometry("600x400")
+        width, height = 600, 400
+        self.geometry(f"{width}x{height}")
         self.resizable(False, False)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -56,13 +29,27 @@ class SaleDetailsDialog(ctk.CTkToplevel):
         self._frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self._frame.grid_columnconfigure(0, weight=1)
 
+        # Centrar la ventana
+        self.update_idletasks()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
         header_frame = ctk.CTkFrame(self._frame, corner_radius=0)
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         ctk.CTkLabel(header_frame, text=f"Venta ID: {sale_data['id']}", font=("Roboto", 14, "bold")).pack(pady=5)
         ctk.CTkLabel(header_frame, text=f"Fecha: {sale_data['date']}").pack(pady=2)
         ctk.CTkLabel(header_frame, text=f"Tipo: {sale_data['price_type']}", font=("Roboto", 12)).pack(pady=2)
         ctk.CTkLabel(header_frame, text=f"Total: ${float(sale_data['total']):.2f}",
-                     text_color="#4fc3f7", font=("Roboto", 14, "bold")).pack(pady=10)
+                     text_color="#4fc3f7", font=("Roboto", 14, "bold")).pack(pady=2)
+
+        # Recibido y cambio (asumimos recibido = total y cambio = 0 si no hay más datos)
+        recibido = float(sale_data.get('recibido', sale_data['total']))
+        cambio = float(sale_data.get('cambio', 0.0))
+        ctk.CTkLabel(header_frame, text=f"Recibido: ${recibido:.2f}", font=("Roboto", 12)).pack(pady=2)
+        ctk.CTkLabel(header_frame, text=f"Cambio: ${cambio:.2f}", font=("Roboto", 12)).pack(pady=2)
 
         products_frame = ctk.CTkFrame(self._frame)
         products_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
@@ -94,12 +81,12 @@ class HistorialVentasApp(ctk.CTk):
         self._state_before_windows_set_titlebar_color='zoomed'
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
-        icon_path = os.path.join(os.path.dirname(__file__), "logo.ico")
+        icon_path = iconos("imagenes","logo.ico")
         self.iconbitmap(icon_path)
 
     def _setup_db(self):
         try:
-            self.conn = sqlite3.connect('ventas.db', check_same_thread=False)
+            self.conn = sqlite3.connect(DB_FILE, check_same_thread=False)
             self.cursor = self.conn.cursor()
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS ventas (
@@ -112,7 +99,7 @@ class HistorialVentasApp(ctk.CTk):
             ''')
             self.conn.commit()
         except sqlite3.Error as e:
-            ErrorDialog(self, f"Error de base de datos:\n{str(e)}")
+            ErrorDialog(self, f"Error de base de datos:\n{str(e)}",iconos("imagenes","error.ico"))
             self.destroy()
 
     def _create_ui(self):
@@ -269,7 +256,7 @@ class HistorialVentasApp(ctk.CTk):
 
         if mode == "day":
             if not date_str:
-                ErrorDialog(self, "Por favor, seleccione una fecha (YYYY-MM-DD).")
+                ErrorDialog(self, "Por favor, seleccione una fecha (YYYY-MM-DD).",iconos("imagenes","error.ico"))
                 return
             try:
                 datetime.strptime(date_str, "%Y-%m-%d")
@@ -283,7 +270,7 @@ class HistorialVentasApp(ctk.CTk):
                 sales = self.cursor.fetchall()
                 self._display_sales(sales)
             except ValueError:
-                ErrorDialog(self, "Formato de fecha inválido.\nUse YYYY-MM-DD")
+                ErrorDialog(self, "Formato de fecha inválido.\nUse YYYY-MM-DD",iconos("imagenes","error.ico"))
             except Exception as e:
                 ErrorDialog(self, f"Error al buscar ventas diarias:\n{str(e)}")
 
@@ -303,13 +290,13 @@ class HistorialVentasApp(ctk.CTk):
                 sales = self.cursor.fetchall()
                 self._display_sales(sales)
             except ValueError:
-                ErrorDialog(self, "Formato de mes inválido.\nUse YYYY-MM")
+                ErrorDialog(self, "Formato de mes inválido.\nUse YYYY-MM",iconos("imagenes","error.ico"))
             except Exception as e:
-                ErrorDialog(self, f"Error al buscar ventas mensuales:\n{str(e)}")
+                ErrorDialog(self, f"Error al buscar ventas mensuales:\n{str(e)}",iconos("imagenes","error.ico"))
 
         elif mode == "year":
             if not date_str:
-                ErrorDialog(self, "Por favor, seleccione un año (YYYY).")
+                ErrorDialog(self, "Por favor, seleccione un año (YYYY).",iconos("imagenes","error.ico"))
                 return
             try:
                 datetime.strptime(date_str, "%Y")
@@ -323,14 +310,14 @@ class HistorialVentasApp(ctk.CTk):
                 sales = self.cursor.fetchall()
                 self._display_sales(sales)
             except ValueError:
-                ErrorDialog(self, "Formato de año inválido.\nUse YYYY")
+                ErrorDialog(self, "Formato de año inválido.\nUse YYYY",iconos("imagenes","error.ico"))
             except Exception as e:
-                ErrorDialog(self, f"Error al buscar ventas anuales:\n{str(e)}")
+                ErrorDialog(self, f"Error al buscar ventas anuales:\n{str(e)}",iconos("imagenes","error.ico"))
 
     def _display_sales(self, sales):
         self.sales_table.delete(*self.sales_table.get_children())
         if not sales and self.selected_report_type != "Ventas generales":
-            CustomDialog(self, "Información", "No se encontraron ventas para el criterio seleccionado.")
+            InfoDialog(self, "Información", "No se encontraron ventas para el criterio seleccionado.",iconos("imagenes","info.ico"))
             return
 
         for sale in sales:
@@ -380,13 +367,16 @@ class HistorialVentasApp(ctk.CTk):
             }
             SaleDetailsDialog(self, sale_data)
         except Exception as e:
-            ErrorDialog(self, f"Error al mostrar detalles:\n{str(e)}")
+            ErrorDialog(self, f"Error al mostrar detalles:\n{str(e)}",iconos("imagenes","error.ico"))
 
     def _generate_pdf_report(self, filename_prefix, title, query, params=None, mode="daily"):
         try:
-            os.makedirs("ventas", exist_ok=True)
+            # Crear la carpeta 'ventas' en el escritorio
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+            ventas_dir = os.path.join(desktop_path, "ventas")
+            os.makedirs(ventas_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"ventas/{filename_prefix}_{timestamp}.pdf"
+            filename = os.path.join(ventas_dir, f"{filename_prefix}_{timestamp}.pdf")
             doc = SimpleDocTemplate(filename, pagesize=letter,
                                     rightMargin=40, leftMargin=40,
                                     topMargin=40, bottomMargin=40)
@@ -418,7 +408,7 @@ class HistorialVentasApp(ctk.CTk):
             sales_data = self.cursor.fetchall()
 
             if not sales_data:
-                ErrorDialog(self, "No hay datos para generar el reporte.")
+                ErrorDialog(self, "No hay datos para generar el reporte.",iconos("imagenes","error.ico"))
                 return
 
             elif mode == "daily":
@@ -568,15 +558,15 @@ class HistorialVentasApp(ctk.CTk):
                 elements.append(Paragraph(f"TOTAL ANUAL: ${total_anual:.2f}", styles["Highlight"]))
 
             doc.build(elements)
-            SuccessDialog(self, f"Reporte generado exitosamente:\n{filename}")
+            SuccessDialog(self, f"Reporte generado exitosamente:\n{filename}",iconos("imagenes","exito.ico"))
 
         except Exception as e:
-            ErrorDialog(self, f"Error al generar PDF:\n{str(e)}")
+            ErrorDialog(self, f"Error al generar PDF:\n{str(e)}",iconos("imagenes","error.ico"))
 
     def _export_daily_pdf(self):
         date_str = self.date_entry.get().strip()
         if not date_str:
-            ErrorDialog(self, "Por favor, seleccione una fecha para el reporte diario.")
+            ErrorDialog(self, "Por favor, seleccione una fecha para el reporte diario.",iconos("imagenes","error.ico"))
             return
         try:
             datetime.strptime(date_str, "%Y-%m-%d")
@@ -589,12 +579,12 @@ class HistorialVentasApp(ctk.CTk):
             title = f"REPORTE DE VENTAS DEL DÍA - {date_str}"
             self._generate_pdf_report("reporte_ventas_dia", title, query, (date_str,), mode="daily")
         except ValueError:
-            ErrorDialog(self, "Formato de fecha inválido para el reporte diario.\nUse YYYY-MM-DD")
+            ErrorDialog(self, "Formato de fecha inválido para el reporte diario.\nUse YYYY-MM-DD",iconos("imagenes","error.ico"))
 
     def _export_monthly_pdf(self):
         date_str = self.date_entry.get().strip()
         if not date_str:
-            ErrorDialog(self, "Por favor, seleccione un mes para el reporte mensual (YYYY-MM).")
+            ErrorDialog(self, "Por favor, seleccione un mes para el reporte mensual (YYYY-MM).",iconos("imagenes","error.ico"))
             return
         try:
             datetime.strptime(date_str, "%Y-%m")
@@ -607,12 +597,12 @@ class HistorialVentasApp(ctk.CTk):
             title = f"REPORTE DE VENTAS MENSUALES - {date_str}"
             self._generate_pdf_report("reporte_ventas_mensual", title, query, (date_str,), mode="monthly")
         except ValueError:
-            ErrorDialog(self, "Formato de mes inválido para el reporte mensual.\nUse YYYY-MM")
+            ErrorDialog(self, "Formato de mes inválido para el reporte mensual.\nUse YYYY-MM",iconos("imagenes","error.ico"))
 
     def _export_yearly_pdf(self):
         date_str = self.date_entry.get().strip()
         if not date_str:
-            ErrorDialog(self, "Por favor, seleccione un año para el reporte anual (YYYY).")
+            ErrorDialog(self, "Por favor, seleccione un año para el reporte anual (YYYY).",iconos("imagenes","error.ico"))
             return
         try:
             datetime.strptime(date_str, "%Y")
@@ -625,7 +615,7 @@ class HistorialVentasApp(ctk.CTk):
             title = f"REPORTE DE VENTAS ANUALES - {date_str}"
             self._generate_pdf_report("reporte_ventas_anual", title, query, (date_str,), mode="yearly")
         except ValueError:
-            ErrorDialog(self, "Formato de año inválido para el reporte anual.\nUse YYYY")
+            ErrorDialog(self, "Formato de año inválido para el reporte anual.\nUse YYYY",iconos("imagenes","error.ico"))
 
     def _show_general_sales(self):
         try:
@@ -633,9 +623,9 @@ class HistorialVentasApp(ctk.CTk):
             sales = self.cursor.fetchall()
             self._display_sales(sales)
             if not sales:
-                CustomDialog(self, "Información", "No hay ventas registradas en el historial.")
+                InfoDialog(self, "Información", "No hay ventas registradas en el historial.",iconos("imagenes","info.ico"))
         except Exception as e:
-            ErrorDialog(self, f"Error al cargar ventas generales:\n{str(e)}")
+            ErrorDialog(self, f"Error al cargar ventas generales:\n{str(e)}",iconos("imagenes","error.ico"))
 
     def _export_general_sales_pdf(self):
         query = """
@@ -654,7 +644,7 @@ class HistorialVentasApp(ctk.CTk):
             if hasattr(self, 'conn'):
                 self.conn.close()
         except Exception:
-            ErrorDialog(self,"Error al cerrar la base de datos")
+            ErrorDialog(self,"Error al cerrar la base de datos",iconos("imagenes","error.ico"))
         finally:
             self.quit()
             self.destroy()
